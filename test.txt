@@ -1,0 +1,41 @@
+#### Output
+
+
+     [NORMAL]
+     hours_of_work_for_nothing.mp3                     		 00:00:34.27		        34 s	       227 kb/s	
+     
+     [VERBOSE]
+     hours_of_work_for_nothing.mp3                     	
+     		timecode:	 00:00:34.27 sec	
+	 	duration:	        34 sec
+		bitrate:	       227 kb/s
+
+		Audio file with ID3 version 2.3.0, contains: MPEG ADTS, layer III, v1, 224 kbps, 48 kHz, JntStereo
+
+	[duration]
+	hours_of_work_for_nothing.mp3                     		duration:	        34 sec
+
+	[bitrate]
+	hours_of_work_for_nothing.mp3                     		bitrate:	       227 kb/s
+
+	[rate]
+	hours_of_work_for_nothing.mp3                     		bitrate:	    227000
+
+	[timecode]
+	hours_of_work_for_nothing.mp3                     		time:		00:00:34.27
+
+	[QUIET]
+		 00:00:34.27		        34 s	       227 kb/s	
+
+	[QUIET DURATION]
+	34
+
+	[QUIET BITRATE]
+	227 kb/s
+
+	[QUIET RATE]
+	227000
+
+	[QUIET TIMECODE]
+	00:00:34.27
+
