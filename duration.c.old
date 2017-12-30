@@ -1,0 +1,580 @@
+/* duration.c */
+
+#include "duration.h"
+
+#include "help.h"
+
+#include "options.h"
+
+/* options bdhqv */
+bool optbr_only  = false;
+bool optdur_only = false;
+bool opttc_only  = false;
+bool opthelp     = false;
+bool optquiet    = false; 
+bool optversion  = false;
+bool optverbose  = false;
+bool have_file_bin = false;
+
+/* just some easy to read */ 
+enum {BAD=0,GOOD=1};
+enum {FALSE=0, TRUE=1};
+
+
+inline size_t array_count(char** a)
+{
+  size_t count = 0;
+  while (a[count] != NULL) count++;
+  return count;
+}
+
+
+/* check if we can know the extension 
+   based upon a list */
+
+inline int check_ext( char* fn, char** list , size_t sz)
+{
+  
+  size_t i = 0;
+  char* fext = NULL;
+  char* ext  = NULL;
+  int ret = BAD;
+
+  if ( !fn || !list) return BAD;
+
+  /* get extension from filename */
+
+  fext = strrchr( fn , '.');
+
+  /* no extention */
+  if (! fext )  return BAD;
+
+  /* skip "." */
+  fext = fext + 1; 
+
+  for (i=0; i<sz; i++)
+    {
+      ext = list[i];
+
+      if ( ext[0] == fext[0] )
+	if ( strncmp( fext, ext , strlen(ext)) == 0 ) 
+	  { ret = GOOD; break; }
+
+    }//for
+
+  return ret;
+
+}// check_ext
+
+
+/*
+  run a command and capture its output
+  up to MAXLINES lines of BUFSIZE chars per line
+*/
+
+
+ 
+char** parse_output(char* cmd ) 
+{
+  char buf[BUFSIZE];
+  char ** ret = NULL;
+  size_t i = 0;
+  FILE *fp;
+
+  errno = 0;
+  /* 50 strings */
+  ret = (char**)calloc(MAXLINES, sizeof(char*));
+  
+
+  if ((fp = popen(cmd, "r")) == NULL) 
+    {
+      fprintf(stderr, "Error opening pipe! {%s}\n", strerror(errno) );
+      exit(errno);
+    }
+
+
+  while (fgets(buf, BUFSIZE, fp) != NULL) 
+    {
+      /* collect lines of output */
+      ret[i++] = strndup(buf, strlen(buf));
+
+      //      fprintf( stderr, "LINE: %s\n", buf);
+
+      /* maxed out */
+      if (i == MAXLINES) break;
+    }
+
+
+  errno = 0;
+
+  /* close process and release resources */
+  if(pclose(fp) != 0)  
+    {
+      fprintf( stderr, "Command not found or exited with error status {%s}\n", strerror(errno) );
+      exit(errno);
+    }
+ 
+
+  return ret;
+}
+
+
+
+
+
+/* Find program for a given path and name.
+
+   windows posix honors / in paths 
+   but uses semicolon (;) 
+   instead of colon (:) 
+   for PATH variable 
+*/
+
+#ifdef _WIN32
+    #define PATH_SEP ";"
+#else
+    #define PATH_SEP   ":"
+#endif
+
+
+char *find_file(const char* path, const char *file)
+{
+  char *s = NULL;
+  char prog[256] = {0};
+  char *p = strndup(path, strlen(path));
+  size_t len = 0;
+  struct stat st;
+  int err;
+  errno = 0;
+  
+ 
+  if(!path && !file ) return NULL;
+  
+
+  for(s = strtok(p, PATH_SEP); s; s = strtok(NULL, PATH_SEP)) 
+    {
+
+      if (  sprintf(prog, "%s/%s", s,  file ) < 0 ) 
+	{
+	  fprintf(stderr, "sprintf failed\n");
+	  exit(-1);
+	}
+
+      err = stat(prog, &st);
+
+
+
+      if (err == -1)
+      	{
+	  if( errno != ENOENT ) /* ignore FILE NOT FOUND */
+	    { 
+      	      fprintf(stderr, "stat %s failed {%s} \n", prog ,strerror(errno) );
+      	      exit(errno);
+	    }
+      	}
+
+
+      if ( !err ) break;
+ 
+
+          
+      memset(prog , 0, 256);
+    } //for
+
+  free(p);
+
+  s = NULL;
+
+  if (prog)
+    { 
+
+      len = strlen(prog)+1;
+
+      s = (char*)calloc(len , sizeof(char) );
+
+      if (!s)
+	{
+	  fprintf(stderr, "calloc of %zu  failed\n", len );
+	  exit(-1);
+	}
+
+      s = strncpy( s, prog, len);   
+    }
+
+
+  return s;
+}
+
+
+
+
+int check_req(char* fname)
+{
+
+  char* prog = NULL;
+
+  char *path = getenv("PATH");
+
+  int ret  = BAD;
+
+  if ( (prog = find_file( path, fname)) )
+    {
+      
+      errno = 0;
+
+      if( access( prog, F_OK ) != -1 )
+	{ 
+	  ret = GOOD;;
+	}
+      else
+	{
+	  ret = BAD;
+	  fprintf( stderr, "file  %s found but can't open it {%s}\n", prog, strerror(errno) );
+	}
+    }
+  else
+    {
+      fprintf( stderr, "File %s not found \n", fname );
+    }
+
+  free(prog);
+  //  free (path);
+
+    return ret;
+}
+
+
+/* 
+   search for a regex match
+   extract the string and return a new one
+   (must free)
+*/
+
+
+char* regex_match(char* in, char* match )
+{ 
+  int i;
+  size_t beg;
+  size_t end;  
+  size_t sublen;
+  size_t mlen;  
+  char *start;
+  char *fin; 
+  
+  regex_t re;
+  regmatch_t rm[2];
+
+  char substring[32] = {0};
+  
+  mlen = strlen(in);
+
+  i = regcomp(&re, match, REG_EXTENDED);
+
+  if ( i != 0)
+    {
+      fprintf(stderr, "regcomp failed to compile {%d}\n", i);
+      exit(-1);
+    }
+
+  i = regexec(&re, in , 2, rm , 0);
+
+  if ( i == REG_NOMATCH) 
+    {
+      regfree(&re);
+      return NULL;
+    }
+  else
+    {
+      if ( i != 0)
+	{
+	  fprintf(stderr, "regexec failed\n");
+	  exit(i);
+	}
+    }
+
+  /* we got a match 
+     the start of the match is rm.rm_so
+     the end  of the match  is rm.rm_eo
+     in bytes past in[0].
+  */
+
+  beg = rm[0].rm_so;  
+  end = rm[0].rm_eo;
+
+  /* fprintf(stderr , "beg %zu\n",  beg  ); */
+  /* fprintf(stderr , "end  %zu\n", end ); */
+
+  start = in + beg;
+  fin   = in + end;
+  sublen = fin - start;
+
+  memcpy(substring , start , sublen );
+
+  /* fprintf(stderr , "start %s\n", start ); */
+  /* fprintf(stderr , "fin %s\n", fin ); */
+
+
+  /* fprintf(stderr , "in %s\n", in ); */
+  /* fprintf(stderr , "match %s\n", match ); */
+
+  /* fprintf(stderr , "found %s\n", substring ); */
+
+
+  regfree(&re);
+
+  if (substring) 
+    return strndup( substring, strlen(substring));
+  else
+    return NULL;
+} //regex_match
+
+
+/*{eval $(ffprobe -v 0 "${1}" -show_streams  -select_streams a:0  -of flat=s=_:h=0 | grep -E 'codec_name') */
+#define FFPROBE "ffprobe -i \"%s\" 2>&1 | grep Duration | awk \"{print $2}\" | tr -d , "
+
+void get_dur_and_rate(char* f)
+{
+ 
+  char ** ret = NULL;
+  char cmd[256] = {0x0};
+  char* timereg = "[0][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9]";
+  char* ratereg = "[0-9]+ kb/s";
+  char* durstr  = NULL;
+  char* ratestr = NULL;
+  char* timecode = NULL;
+  char* basename = NULL;
+  int r;
+  int hr, min, sec, ms;
+  unsigned duration, rate;
+  
+  
+  sprintf(cmd, FFPROBE , f ); 
+  
+  /* run ffrobe and capture output */
+  ret = parse_output( cmd );
+
+  /* int i = 0; */
+  /* while ( ret[i] ) */
+  /*   { */
+  /*     fprintf(stdout , "line: %s \n" , ret[i]); */
+  /*     i++; */
+  /*   } */
+
+  durstr  =  regex_match(ret[0], timereg  );
+
+  sscanf( durstr, "%d:%d:%d.%d" , &hr , &min, &sec, &ms );
+
+  duration = hr*3600 + min*60 + sec + ((ms>50)? 1:0);  
+  /* fprintf(stdout, "time:\t%s\n" , durstr); */
+
+  basename = strrchr(f, '/');
+  basename = basename +1;
+
+  if (!optquiet) fprintf(stdout, "%-50s\t" , basename);
+ 
+ if(optverbose) fprintf(stdout, "\n");
+
+  /* get string we want */
+
+  if(opttc_only)
+    {
+      if (durstr)   
+	{
+	  if ( optquiet )fprintf(stdout, "%s\n", durstr);
+	  else
+	    fprintf(stdout, "\ttime:\t%s \n" , durstr);
+	}
+
+      goto done;
+    }
+
+
+
+  if(! optdur_only)
+    {
+      ratestr =  regex_match(ret[0], ratereg  );
+      sscanf(ratestr, "%d kb/s", &rate);
+  /* fprintf(stdout, "rate:\t%s\n" , ratestr); */
+    }
+
+      
+
+  if (! optquiet)
+    {
+      
+      if (optverbose)
+	{
+	  if (durstr)   fprintf(stdout, "\ttimecode:\t%10s sec\t\n" , durstr);
+
+	  if (duration) fprintf(stdout, "\tduration:\t%10u sec\n" , duration);
+
+	  if (ratestr)  fprintf(stdout, "\tbitrate:\t%10u kb/s\n" , rate);
+	}
+      else
+	{ /* no option option */
+	  if (durstr)   fprintf(stdout, "\t%10.10s\t\t" , durstr);
+
+	  if (duration) fprintf(stdout, "%10u s\t" , duration);
+
+	  if (ratestr)  fprintf(stdout, "%10u kb/s\t" , rate);
+	}
+    }
+  else
+    {
+
+      if (duration && (!optbr_only) )  fprintf(stdout, "%u\n" , duration);
+
+      if (ratestr && (!optdur_only))  fprintf(stdout, "%u\n" , rate * 1000 );
+    }
+
+
+
+
+  fprintf(stdout, "\n");
+
+  fflush(stdout);
+
+done:
+
+  r = 0;
+  
+  while(ret[r]) free(ret[r++]);
+
+  free(ret);
+
+  free (ratestr);
+
+  free (durstr);
+
+} // get dur & rate
+
+
+
+void fileinfo(char* f)
+{
+  char fcmd[80] = {0};
+  char** fileinfo = NULL;
+  size_t n;
+
+  //fprintf(stdout, "%-50.50s\t" , f);
+      
+  if (have_file_bin)
+    {
+  
+      sprintf(fcmd , "file -b \"%s\"\n" ,f);
+
+      fileinfo = parse_output(fcmd );
+
+      n = array_count(fileinfo);
+      
+      fprintf( stdout , "\t%s" , fileinfo[0] );
+    }
+  
+}
+
+
+
+int main( int argc, char** argv , char** env )
+{
+
+  size_t audext_sz = 0;
+  size_t vidext_sz = 0;
+  int optargs; 
+  extern int optind;
+
+/* gotta have at least 2 arguments */
+  if (argc  < 2 )
+    {
+      usage(stderr);
+      exit(-1);
+    }
+
+  /* set flags */  
+  options(argc, argv);
+
+  /* help and exit */
+  if( opthelp )
+    {
+      //      version(stdout);
+      usage(stdout);
+      exit(0);
+    }
+
+  /* version and exit */
+  if(optversion)
+    {
+      version(stdout);
+      exit(0);
+    }
+
+  /* how many non option args? */
+  optargs = optind; 
+  /* fprintf(stderr, "optargs:\t%d\n" , optargs); */
+
+  /* do we have file (magic info)? */
+  have_file_bin = check_req("file");
+
+  int f = 0;
+
+  /* check requirements */
+  while (required[f])
+    {
+      char* fn = required[f];
+
+      if (! check_req(fn))
+	{
+	  fprintf(stderr, "check_req failed. %s not found in path. exiting.\n" , fn);
+	  exit(-1);
+	}
+      /* else */
+      /* 	  fprintf(stderr, "%s found OK\n" , fn); */
+	
+      f++;
+    }
+
+  
+
+
+ 
+  audext_sz = array_count(audext);
+  vidext_sz = array_count(vidext);
+
+  size_t a;
+  /* check files for existence, access, type */
+  for ( a = optargs; a < argc; a++)
+    {
+      char* thefile = argv[a];
+
+      if(  access( thefile, R_OK ) != 0 )
+	{
+	  fprintf(stderr, "argument file  %s not found\n", thefile );
+	  exit(-1);
+	}
+      else
+	{
+	  if ( check_ext(thefile, audext, audext_sz) || check_ext(thefile, vidext, vidext_sz) )
+	    {
+   	      
+	      get_dur_and_rate(thefile);
+	      
+	      if (optverbose)
+		{
+		  fileinfo(thefile);
+		}
+
+	    }
+	  else
+	    {
+	      fprintf(stdout , "%-50.50s" , thefile);
+	      fileinfo(thefile);
+	    }
+	}//else
+    } //for
+  
+
+  return 0;
+} //main
+
+
+
+
