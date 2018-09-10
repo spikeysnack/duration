@@ -3,7 +3,7 @@
 SHELL=/bin/sh
 
 CC= gcc
-CCFLAGS= -O2 -mtune=native --optimize-strlen
+CFLAGS= -O2 -mtune=native --optimize-strlen
 #CCOPTS= -O2 -mtune=native 
 
 #CC= clang
