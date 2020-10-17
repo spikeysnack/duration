@@ -10,11 +10,20 @@ CFLAGS= -O2 -mtune=native --optimize-strlen
 #CFLAGS= -O2 -mtune=native
 DEBUGCFLAGS= -O0 -ggdb3 
 
+
 ifneq (,$(wildcard ~/bin))
 prefix = ~
 else
 prefix = /usr/local	
 endif
+
+HAVEFILE = $(shell which file)
+ifneq (,$(HAVEFILE))
+DEFINES = -DHAVEFILE
+else
+DEFINES =
+endif
+
 
 TARGET = duration
 SRCDIR = src
@@ -37,12 +46,13 @@ all:	duration
 
 duration: $(SOURCES) $(INCLUDES)
 	@cd $(SRCDIR)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SOURCES)
+	$(CC) $(CFLAGS) $(DEFINES) -o $(TARGET) $(SOURCES)
 
 
 debug: $(SOURCES) $(INCLUDES)
 	@cd $(SRCDIR)
-	$(CC) $(DEBUGCFLAGS) -o $(TARGET) $(SOURCES)
+	$(CC) $(DEBUGCFLAGS) $(DEFINES) -o $(TARGET) $(SOURCES)
+
 
 
 help:	README.md  duration

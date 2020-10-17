@@ -27,7 +27,13 @@ bool optverbose    = false;
 
 
 /* if we have file  (optional) */
-bool have_file_bin = false;
+
+#ifndef HAVEFILE
+bool have_file_bin = false; */
+#else
+bool have_file_bin = true;
+#endif 
+
 
 size_t array_count(char** a)
 {
@@ -80,7 +86,8 @@ return ret;
 /* invoke "file" binary for file info */
 void fileinfo(char* f)
 {
-char fcmd[80] = {0};
+  //char fcmd[80] = {0};
+char fcmd[256] = {0};
 char** fileinfo = NULL;
 size_t i,n;
 
@@ -89,18 +96,18 @@ size_t i,n;
 if (have_file_bin)
   {
 
-sprintf(fcmd , "%s \"%s\"\n" , FILECMD , f );
+      snprintf(fcmd , 255, "%s \"%s\"\n" , FILECMD , f );
 
-fileinfo = parse_output(fcmd );
+      fileinfo = parse_output(fcmd);
 
-n = array_count(fileinfo);
+      n = array_count(fileinfo);
 
-fprintf( stdout , "\t%s" , fileinfo[0] );
+      fprintf( stdout , "\t%s" , fileinfo[0] );
 
-for( i = 0; i < n; i++) free(fileinfo[i]);
-
+      for( i = 0; i < n; i++) 
+        free(fileinfo[i]);
       free(fileinfo);
-    }
+      }
 
 } /* fileinfo */
 
@@ -123,7 +130,7 @@ char** parse_output(char* cmd )
   /* 50 strings */
   ret = (char**)calloc(MAXLINES, sizeof(char*));
   
-
+  /* run the command */
   if ((fp = popen(cmd, "r")) == NULL) 
     {
       fprintf(stderr, "Error opening pipe! {%s}\n", strerror(errno) );
@@ -574,7 +581,11 @@ int main( int argc, char** argv , char** env )
 
   size_t audext_sz = 0;
   size_t vidext_sz = 0;
-  size_t totaltime = 0;
+
+  unsigned hours     = 0;
+  unsigned min       = 0;
+  unsigned sec       = 0;
+  unsigned totaltime = 0;
 
   int optargs; 
   extern int optind;
@@ -677,30 +688,45 @@ int main( int argc, char** argv , char** env )
     } //for
   
 
-  if (a >3)
+  if (a > 3)
     {
-      if (optverbose  )
+
+      
+      hours = totaltime / 3600;
+      
+      min   = (totaltime - (hours * 3600) ) / 60;
+
+      if (min > 59) { hours++; min = min % 60; }
+
+      sec  = totaltime - ((hours*3600) + (min*60) );
+
+      if( sec > 59) { min++; sec = sec % 60;}
+
+      if ( optverbose )
 	{
-	  size_t hours, min, sec;
-	  hours = totaltime /3600;
-	  min   = (totaltime - hours)/60;
-	  sec   = totaltime - ((hours*3600) + (min*60) );
+ 
+	  fprintf(stdout , "total duration:\t%u sec \t " , totaltime);
 	  
-	  fprintf(stdout , "total duration:\t%zu sec \t " , totaltime);
+	  fprintf(stdout , "( %02u hours\t" , hours);
 	  
-	  fprintf(stdout , "( %zu hours\t" , hours);
+	  fprintf(stdout , "%02u minutes\t" , min );
 	  
-	  fprintf(stdout , "%zu minutes\t" , min );
-	  
-	  fprintf(stdout , "%zu seconds )\n" , sec);
+	  fprintf(stdout , "%02u seconds )\n" , sec);
 	  
 	}
       else
 	{
-	  if(!optquiet) fprintf(stdout , "total:\t%zu sec \n" , totaltime);
+	  char hms[9] = {'\0'};
+	  
+	  snprintf(hms , 8, "%02u:%02u:%02u", hours, min, sec); 
+	  
+	  if(!optquiet) fprintf(stdout , "total:\t%02u sec \t %s\n" , totaltime, hms );
+	  
 	}
     }
 
   return 0;
 } //main
+
+
 

@@ -12,11 +12,12 @@
 #ifndef DURATION_H
 #define DURATION_H
 
-#define DURATION_VERSION  "1.0"
-#define DURATION_DATE     "1 Jan 2018"
+#define DURATION_VERSION  "1.4"
+#define DURATION_DATE     "16 Oct 2020 "
 
 #define DEBUG 1
-#define BUFSIZE 256
+// #define BUFSIZE 256
+#define BUFSIZE 512 
 #define MAXLINES 50
 
 /* some C suites do not define bool */
@@ -56,17 +57,17 @@ char* required[]={ "ffprobe", "awk", NULL};
    be generally faster */
 
 /* video extensions */
-char* vidext[]={ "mkv",  "mp4", "mpv", "avi", "flv", 
-		 "webm", "wmv", "mpg", "ogv", "VOB", 
-		 "wmv",  "ts" ,  NULL};
+char* vidext[]={ "mkv",  "mp4", "mpv", "m4v", "avi", 
+		 "flv", "webm", "wmv", "mpg", "ogv", 
+		 "VOB", "wmv",  "ts" ,  NULL};
 
 
 
 /* audio extensions */
 char* audext[] = { "flac", "mp3", "ac3", "pcm", "mp2", 
 		   "mpa",  "mpc", "ogg", "oga", "ape",  
-		   "m4a", "aac", "aiff", "wma", "wav", 
-		   "wv",  NULL };
+		   "m4a",  "aac", "aiff", "wma", "wav", 
+		   "wv",   "opus", NULL };
 
 
 #endif
