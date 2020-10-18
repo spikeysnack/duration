@@ -2,12 +2,10 @@
 
 #### Description:  get info on media files
 
-
-#### 1.0  date:	1 Jan 2018 release 
-#### 1.4  date:	16 Oct 2020 update 
+#### 1.4  date:	16 Oct 2020 update release
 
 #### Free for all non-commercial purposes.
-#### Copyright 2018 Chris Reid <http://spikeysnack@gmail.com>
+#### Copyright 2020 Chris Reid <http://spikeysnack@gmail.com>
 
 ### Usage: 
 
